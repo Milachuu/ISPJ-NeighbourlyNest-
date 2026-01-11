@@ -14,7 +14,8 @@ required_packages = [
     "python-dotenv",           # correct PyPI name is python-dotenv, not dotenv
     "stripe",
     "geopy",
-    "cryptography"
+    "cryptography",
+    "flask-socketio"
 ]
 
 # Try to install any missing packages

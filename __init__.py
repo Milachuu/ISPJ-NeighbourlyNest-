@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask_socketio import SocketIO, emit, join_room
 from otp_backup import generate_2fa_backup_codes, verify_and_consume_backup_code
 from Forms import CreateUserForm,CreateUserInfo,Login,Wishlist,Reporting
 import User,hashlib, pyotp, qrcode, base64, io, os, uuid, json
@@ -25,6 +26,7 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'asdsdasd dasdasd'
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 
 app.config.update(
@@ -2903,6 +2905,6 @@ def userchat():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    socketio.run(app, debug=True)
 
     # app.run(ssl_context=("localhost+2.pem", "localhost+2-key.pem", debug=True))
