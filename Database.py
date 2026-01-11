@@ -30,6 +30,22 @@ def table_creation():
 
     mycursor.execute(" CREATE TABLE IF NOT EXISTS Booking ( booking_id int AUTO_INCREMENT PRIMARY KEY NOT NULL, booking_email Varchar(100), book_listing_id int, selected_date Varchar(15) , selected_time Varchar(15), FOREIGN KEY (booking_email) REFERENCES User(login_email), FOREIGN KEY (book_listing_id) REFERENCES Listing(listing_id) ON DELETE CASCADE ) ")
 
+    mycursor.execute(
+        "CREATE TABLE IF NOT EXISTS ChatMessage ("
+        "message_id INT AUTO_INCREMENT PRIMARY KEY NOT NULL,"
+        "booking_id INT NOT NULL,"
+        "sender_email VARCHAR(100) NOT NULL,"
+        "sender_name VARCHAR(100),"
+        "message_text TEXT NOT NULL,"
+        "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,"
+        "is_read TINYINT(1) NOT NULL DEFAULT 0,"
+        "FOREIGN KEY (booking_id) REFERENCES Booking(booking_id) ON DELETE CASCADE,"
+        "INDEX (booking_id),"
+        "INDEX (sender_email),"
+        "INDEX (created_at)"
+        ")"
+    )
+
 
     mycursor.execute(" CREATE TABLE IF NOT EXISTS Wishlist ( wishlist_id int AUTO_INCREMENT PRIMARY KEY NOT NULL, wishlist_email Varchar(100), wishlist_listing_id int, FOREIGN KEY (wishlist_email) REFERENCES User(login_email), FOREIGN KEY (wishlist_listing_id) REFERENCES Listing(listing_id) ) ")
 
@@ -333,7 +349,6 @@ def select_password_storage(email,password):
 
 """
     
-
 
 
 
