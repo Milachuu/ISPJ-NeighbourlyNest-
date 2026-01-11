@@ -2807,8 +2807,99 @@ def userchat():
 
     lang_code = get_user_lang_code()     
     t = make_t(lang_code)                 
-  
-    return render_template('userchat.html', t=t, username = get_username)
+
+    conversations = []
+    cursor = db.cursor(dictionary=True)
+    cursor.execute(
+        """
+        SELECT
+            b.booking_id,
+            b.selected_date,
+            b.selected_time,
+            l.listing_id,
+            l.listing_username,
+            l.title,
+            l.photo_path,
+            l.listing_email
+        FROM Booking b
+        JOIN Listing l ON b.book_listing_id = l.listing_id
+        WHERE b.booking_email = %s
+        ORDER BY b.booking_id DESC
+        """,
+        (get_email,),
+    )
+    rows = cursor.fetchall()
+
+    process_steps = [
+        "Select Listing",
+        "Confirm Collection Date",
+        "Initiate Chat",
+        "Verify Users",
+        "Create/Load Chat",
+        "Display Conversation",
+        "Send/Receive Messages",
+        "Update Read Status",
+        "Confirm Transaction",
+    ]
+
+    for index, row in enumerate(rows):
+        listing_title = row.get("title") or "Listing"
+        contact_name = row.get("listing_username") or "Neighbour"
+        selected_date = row.get("selected_date") or "TBD"
+        selected_time = row.get("selected_time") or "TBD"
+        photo_path = row.get("photo_path") or "img/speech-bubble.png"
+        steps = []
+        for step in process_steps:
+            status = "completed"
+            if step == "Send/Receive Messages":
+                status = "in-progress"
+            if step == "Confirm Transaction":
+                status = "pending"
+            steps.append({"label": step, "status": status})
+
+        messages = [
+            {
+                "sender": contact_name,
+                "direction": "incoming",
+                "time": "09:12",
+                "text": f"Hi {get_username or 'there'}, thanks for selecting the {listing_title}.",
+            },
+            {
+                "sender": "You",
+                "direction": "outgoing",
+                "time": "09:14",
+                "text": f"I’d like to collect on {selected_date} at {selected_time}. Does that work?",
+            },
+            {
+                "sender": contact_name,
+                "direction": "incoming",
+                "time": "09:16",
+                "text": "That works! I’ve reserved it for you.",
+            },
+        ]
+
+        conversations.append(
+            {
+                "booking_id": row.get("booking_id"),
+                "listing_title": listing_title,
+                "photo_path": photo_path,
+                "contact_name": contact_name,
+                "selected_date": selected_date,
+                "selected_time": selected_time,
+                "unread_count": 0 if index == 0 else 1,
+                "last_message": messages[-1]["text"],
+                "last_time": messages[-1]["time"],
+                "steps": steps,
+                "messages": messages,
+            }
+        )
+
+    return render_template(
+        'userchat.html',
+        t=t,
+        username=get_username,
+        conversations=conversations,
+    )
 
 
 if __name__ == '__main__':

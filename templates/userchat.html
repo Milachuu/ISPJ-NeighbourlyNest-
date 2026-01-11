@@ -7,50 +7,122 @@
 
 {% block content %}
 <div class="userchat-page">
-  <div class="userchat-app">
-
-    <!-- HEADER -->
-    <header class="userchat-header" aria-label="Chat header">
-      <div class="userchat-header-left">
-        <div class="userchat-avatar" aria-hidden="true">★</div>
-        <div class="userchat-username">Zoe_Farrell</div>
+  <div class="userchat-shell">
+    <aside class="userchat-sidebar" aria-label="Chat inbox">
+      <div class="userchat-sidebar-header">
+        <div>
+          <p class="userchat-sidebar-kicker">Inbox</p>
+          <h1 class="userchat-sidebar-title">Chats</h1>
+        </div>
+        <span class="userchat-sidebar-count">{{ conversations|length }}</span>
       </div>
 
-      <div class="userchat-header-actions" aria-label="Window controls">
-        <span class="userchat-header-action" aria-hidden="true">—</span>
-        <span class="userchat-header-action" aria-hidden="true">✕</span>
+      <div class="userchat-sidebar-list">
+        {% if conversations %}
+          {% for chat in conversations %}
+            <button
+              class="userchat-thread-card{% if loop.first %} is-active{% endif %}"
+              type="button"
+              data-chat-id="{{ chat.booking_id }}"
+            >
+              <img
+                class="userchat-thread-avatar"
+                src="{{ url_for('static', filename=chat.photo_path) }}"
+                alt="{{ chat.listing_title }}"
+              />
+              <div class="userchat-thread-body">
+                <div class="userchat-thread-top">
+                  <span class="userchat-thread-name">{{ chat.contact_name }}</span>
+                  <span class="userchat-thread-time">{{ chat.last_time }}</span>
+                </div>
+                <p class="userchat-thread-preview">{{ chat.last_message }}</p>
+                <p class="userchat-thread-meta">
+                  {{ chat.listing_title }} • {{ chat.selected_date }} {{ chat.selected_time }}
+                </p>
+              </div>
+              {% if chat.unread_count %}
+                <span class="userchat-thread-unread">{{ chat.unread_count }}</span>
+              {% endif %}
+            </button>
+          {% endfor %}
+        {% else %}
+          <div class="userchat-empty">
+            <p>No chats yet. When you book a listing, your conversation will appear here.</p>
+          </div>
+        {% endif %}
       </div>
-    </header>
+    </aside>
 
-    <!-- MESSAGES -->
-    <main class="userchat-messages" aria-label="Chat messages">
-      <div class="userchat-message userchat-message-incoming">
-        Hello! I saw your listing for the Zojirushi rice cooker...may i check if its still available?
-      </div>
+    <section class="userchat-conversations" aria-label="Conversation panel">
+      {% if conversations %}
+        {% for chat in conversations %}
+          <div
+            class="userchat-panel{% if not loop.first %} is-hidden{% endif %}"
+            data-chat-id="{{ chat.booking_id }}"
+          >
+            <header class="userchat-panel-header">
+              <div class="userchat-panel-title">
+                <p class="userchat-panel-kicker">Listing</p>
+                <h2>{{ chat.listing_title }}</h2>
+                <p class="userchat-panel-subtitle">
+                  Collection: {{ chat.selected_date }} at {{ chat.selected_time }}
+                </p>
+              </div>
+              <div class="userchat-panel-contact">
+                <span class="userchat-panel-label">Chatting with</span>
+                <span class="userchat-panel-name">{{ chat.contact_name }}</span>
+              </div>
+            </header>
 
-      <div class="userchat-message userchat-message-outgoing">
-        Yes it is! Can we meet at Ang mo kio mrt, at 2pm tmr?
-      </div>
+            <section class="userchat-steps" aria-label="Chat process">
+              <h3>Process</h3>
+              <ol class="userchat-step-list">
+                {% for step in chat.steps %}
+                  <li class="userchat-step userchat-step--{{ step.status }}">
+                    <span class="userchat-step-indicator" aria-hidden="true"></span>
+                    <span class="userchat-step-label">{{ step.label }}</span>
+                  </li>
+                {% endfor %}
+              </ol>
+            </section>
 
-      <div class="userchat-message userchat-message-incoming">
-        Okay! See you there!
-      </div>
-    </main>
+            <main class="userchat-thread" aria-live="polite">
+              {% for message in chat.messages %}
+                <div class="userchat-message userchat-message-{{ message.direction }}">
+                  <div class="userchat-message-meta">
+                    <span class="userchat-message-sender">{{ message.sender }}</span>
+                    <span class="userchat-message-time">{{ message.time }}</span>
+                  </div>
+                  <p>{{ message.text }}</p>
+                </div>
+              {% endfor %}
+            </main>
 
-    <!-- INPUT (static UI only) -->
-    <footer class="userchat-input-bar" aria-label="Message input">
-      <input
-        class="userchat-input"
-        type="text"
-        placeholder="Type your message here"
-        disabled
-        aria-disabled="true"
-      />
-      <button class="userchat-send-btn" type="button" aria-label="Send" disabled>
-        ➤
-      </button>
-    </footer>
-
+            <form class="userchat-input-bar" data-chat-id="{{ chat.booking_id }}">
+              <input
+                class="userchat-input"
+                type="text"
+                placeholder="Type a message"
+                aria-label="Type a message"
+              />
+              <button class="userchat-send-btn" type="submit" aria-label="Send message">
+                ➤
+              </button>
+            </form>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="userchat-panel userchat-panel-empty">
+          <h2>Start a conversation</h2>
+          <p>Select a listing and confirm your collection date to unlock chat.</p>
+        </div>
+      {% endif %}
+    </section>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ url_for('static', filename='userchat.js') }}"></script>
 {% endblock %}
