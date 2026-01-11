@@ -2859,45 +2859,26 @@ def userchat():
                 status = "pending"
             steps.append({"label": step, "status": status})
 
-        cursor.execute(
-            """
-            SELECT
-                sender_email,
-                sender_name,
-                message_text,
-                created_at
-            FROM ChatMessage
-            WHERE booking_id = %s
-            ORDER BY created_at ASC
-            """,
-            (row.get("booking_id"),),
-        )
-        message_rows = cursor.fetchall()
-        cursor.execute(
-            """
-            SELECT COUNT(*) AS unread_count
-            FROM ChatMessage
-            WHERE booking_id = %s AND sender_email != %s AND is_read = 0
-            """,
-            (row.get("booking_id"), get_email),
-        )
-        unread_count_row = cursor.fetchone()
-        unread_count = unread_count_row.get("unread_count", 0) if unread_count_row else 0
-        messages = []
-        for message_row in message_rows:
-            sender_email = message_row.get("sender_email")
-            sender_name = message_row.get("sender_name") or "Neighbour"
-            direction = "outgoing" if sender_email == get_email else "incoming"
-            created_at = message_row.get("created_at")
-            time_label = created_at.strftime("%H:%M") if created_at else ""
-            messages.append(
-                {
-                    "sender": "You" if direction == "outgoing" else sender_name,
-                    "direction": direction,
-                    "time": time_label,
-                    "text": message_row.get("message_text") or "",
-                }
-            )
+        messages = [
+            {
+                "sender": contact_name,
+                "direction": "incoming",
+                "time": "09:12",
+                "text": f"Hi {get_username or 'there'}, thanks for selecting the {listing_title}.",
+            },
+            {
+                "sender": "You",
+                "direction": "outgoing",
+                "time": "09:14",
+                "text": f"I’d like to collect on {selected_date} at {selected_time}. Does that work?",
+            },
+            {
+                "sender": contact_name,
+                "direction": "incoming",
+                "time": "09:16",
+                "text": "That works! I’ve reserved it for you.",
+            },
+        ]
 
         conversations.append(
             {
@@ -2907,9 +2888,9 @@ def userchat():
                 "contact_name": contact_name,
                 "selected_date": selected_date,
                 "selected_time": selected_time,
-                "unread_count": unread_count,
-                "last_message": messages[-1]["text"] if messages else "No messages yet.",
-                "last_time": messages[-1]["time"] if messages else "",
+                "unread_count": 0 if index == 0 else 1,
+                "last_message": messages[-1]["text"],
+                "last_time": messages[-1]["time"],
                 "steps": steps,
                 "messages": messages,
             }
@@ -2920,114 +2901,6 @@ def userchat():
         t=t,
         username=get_username,
         conversations=conversations,
-        user_email=get_email,
-    )
-
-def _insert_chat_message(booking_id, sender_email, sender_name, message_text):
-    cursor = db.cursor()
-    cursor.execute(
-        """
-        INSERT INTO ChatMessage (booking_id, sender_email, sender_name, message_text)
-        VALUES (%s, %s, %s, %s)
-        """,
-        (booking_id, sender_email, sender_name, message_text),
-    )
-    db.commit()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute(
-        """
-        SELECT sender_email, sender_name, message_text, created_at
-        FROM ChatMessage
-        WHERE message_id = LAST_INSERT_ID()
-        """,
-    )
-    return cursor.fetchone()
-
-
-@app.route("/chat/send", methods=["POST"])
-def chat_send():
-    if "user_email" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-    if "verify" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
-
-    payload = request.get_json(silent=True) or request.form
-    booking_id = payload.get("booking_id")
-    message_text = (payload.get("message") or "").strip()
-    sender_email = session.get("user_email")
-    sender_name = session.get("username") or "You"
-    if not booking_id or not message_text:
-        return jsonify({"error": "Missing booking_id or message"}), 400
-
-    cursor = db.cursor(dictionary=True)
-    cursor.execute(
-        """
-        SELECT b.booking_id
-        FROM Booking b
-        JOIN Listing l ON b.book_listing_id = l.listing_id
-        WHERE b.booking_id = %s AND (b.booking_email = %s OR l.listing_email = %s)
-        """,
-        (booking_id, sender_email, sender_email),
-    )
-    if not cursor.fetchone():
-        return jsonify({"error": "Forbidden"}), 403
-
-    row = _insert_chat_message(booking_id, sender_email, sender_name, message_text)
-    created_at = row.get("created_at") if row else None
-    time_label = created_at.strftime("%H:%M") if created_at else ""
-    return jsonify(
-        {
-            "booking_id": booking_id,
-            "sender_email": sender_email,
-            "sender_name": sender_name,
-            "message": message_text,
-            "time": time_label,
-        }
-    )
-
-
-@socketio.on("join_chat")
-def handle_join_chat(data):
-    booking_id = data.get("booking_id")
-    user_email = data.get("user_email")
-    if not booking_id or not user_email:
-        return
-    join_room(str(booking_id))
-    cursor = db.cursor()
-    cursor.execute(
-        """
-        UPDATE ChatMessage
-        SET is_read = 1
-        WHERE booking_id = %s AND sender_email != %s
-        """,
-        (booking_id, user_email),
-    )
-    db.commit()
-
-
-@socketio.on("send_message")
-def handle_send_message(data):
-    booking_id = data.get("booking_id")
-    sender_email = data.get("sender_email")
-    sender_name = data.get("sender_name")
-    message_text = data.get("message")
-    if not booking_id or not sender_email or not message_text:
-        return
-    row = _insert_chat_message(booking_id, sender_email, sender_name, message_text)
-    if not row:
-        return
-    created_at = row.get("created_at")
-    time_label = created_at.strftime("%H:%M") if created_at else ""
-    emit(
-        "new_message",
-        {
-            "booking_id": booking_id,
-            "sender_email": row.get("sender_email"),
-            "sender_name": row.get("sender_name") or "Neighbour",
-            "message": row.get("message_text") or "",
-            "time": time_label,
-        },
-        room=str(booking_id),
     )
 
 

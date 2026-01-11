@@ -53,7 +53,7 @@
       </div>
     </aside>
 
-    <section class="userchat-conversations" aria-label="Conversation panel" data-user-email="{{ user_email }}" data-user-name="{{ username }}">
+    <section class="userchat-conversations" aria-label="Conversation panel">
       {% if conversations %}
         {% for chat in conversations %}
           <div
@@ -87,19 +87,15 @@
             </section>
 
             <main class="userchat-thread" aria-live="polite">
-              {% if chat.messages %}
-                {% for message in chat.messages %}
-                  <div class="userchat-message userchat-message-{{ message.direction }}">
-                    <div class="userchat-message-meta">
-                      <span class="userchat-message-sender">{{ message.sender }}</span>
-                      <span class="userchat-message-time">{{ message.time }}</span>
-                    </div>
-                    <p>{{ message.text }}</p>
+              {% for message in chat.messages %}
+                <div class="userchat-message userchat-message-{{ message.direction }}">
+                  <div class="userchat-message-meta">
+                    <span class="userchat-message-sender">{{ message.sender }}</span>
+                    <span class="userchat-message-time">{{ message.time }}</span>
                   </div>
-                {% endfor %}
-              {% else %}
-                <p class="userchat-thread-empty">No messages yet. Send the first message to start the chat.</p>
-              {% endif %}
+                  <p>{{ message.text }}</p>
+                </div>
+              {% endfor %}
             </main>
 
             <form class="userchat-input-bar" data-chat-id="{{ chat.booking_id }}">
@@ -128,6 +124,5 @@
 
 {% block scripts %}
   {{ super() }}
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
   <script src="{{ url_for('static', filename='userchat.js') }}"></script>
 {% endblock %}
