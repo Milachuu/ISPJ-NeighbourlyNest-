@@ -2859,35 +2859,26 @@ def userchat():
                 status = "pending"
             steps.append({"label": step, "status": status})
 
-        cursor.execute(
-            """
-            SELECT
-                sender_email,
-                sender_name,
-                message_text,
-                created_at
-            FROM ChatMessage
-            WHERE booking_id = %s
-            ORDER BY created_at ASC
-            """,
-            (row.get("booking_id"),),
-        )
-        message_rows = cursor.fetchall()
-        messages = []
-        for message_row in message_rows:
-            sender_email = message_row.get("sender_email")
-            sender_name = message_row.get("sender_name") or "Neighbour"
-            direction = "outgoing" if sender_email == get_email else "incoming"
-            created_at = message_row.get("created_at")
-            time_label = created_at.strftime("%H:%M") if created_at else ""
-            messages.append(
-                {
-                    "sender": "You" if direction == "outgoing" else sender_name,
-                    "direction": direction,
-                    "time": time_label,
-                    "text": message_row.get("message_text") or "",
-                }
-            )
+        messages = [
+            {
+                "sender": contact_name,
+                "direction": "incoming",
+                "time": "09:12",
+                "text": f"Hi {get_username or 'there'}, thanks for selecting the {listing_title}.",
+            },
+            {
+                "sender": "You",
+                "direction": "outgoing",
+                "time": "09:14",
+                "text": f"I’d like to collect on {selected_date} at {selected_time}. Does that work?",
+            },
+            {
+                "sender": contact_name,
+                "direction": "incoming",
+                "time": "09:16",
+                "text": "That works! I’ve reserved it for you.",
+            },
+        ]
 
         conversations.append(
             {
@@ -2897,9 +2888,9 @@ def userchat():
                 "contact_name": contact_name,
                 "selected_date": selected_date,
                 "selected_time": selected_time,
-                "unread_count": 0,
-                "last_message": messages[-1]["text"] if messages else "No messages yet.",
-                "last_time": messages[-1]["time"] if messages else "",
+                "unread_count": 0 if index == 0 else 1,
+                "last_message": messages[-1]["text"],
+                "last_time": messages[-1]["time"],
                 "steps": steps,
                 "messages": messages,
             }
@@ -2910,69 +2901,6 @@ def userchat():
         t=t,
         username=get_username,
         conversations=conversations,
-        user_email=get_email,
-    )
-
-
-@socketio.on("join_chat")
-def handle_join_chat(data):
-    booking_id = data.get("booking_id")
-    user_email = data.get("user_email")
-    if not booking_id or not user_email:
-        return
-    join_room(str(booking_id))
-    cursor = db.cursor()
-    cursor.execute(
-        """
-        UPDATE ChatMessage
-        SET is_read = 1
-        WHERE booking_id = %s AND sender_email != %s
-        """,
-        (booking_id, user_email),
-    )
-    db.commit()
-
-
-@socketio.on("send_message")
-def handle_send_message(data):
-    booking_id = data.get("booking_id")
-    sender_email = data.get("sender_email")
-    sender_name = data.get("sender_name")
-    message_text = data.get("message")
-    if not booking_id or not sender_email or not message_text:
-        return
-    cursor = db.cursor()
-    cursor.execute(
-        """
-        INSERT INTO ChatMessage (booking_id, sender_email, sender_name, message_text)
-        VALUES (%s, %s, %s, %s)
-        """,
-        (booking_id, sender_email, sender_name, message_text),
-    )
-    db.commit()
-    cursor = db.cursor(dictionary=True)
-    cursor.execute(
-        """
-        SELECT sender_email, sender_name, message_text, created_at
-        FROM ChatMessage
-        WHERE message_id = LAST_INSERT_ID()
-        """,
-    )
-    row = cursor.fetchone()
-    if not row:
-        return
-    created_at = row.get("created_at")
-    time_label = created_at.strftime("%H:%M") if created_at else ""
-    emit(
-        "new_message",
-        {
-            "booking_id": booking_id,
-            "sender_email": row.get("sender_email"),
-            "sender_name": row.get("sender_name") or "Neighbour",
-            "message": row.get("message_text") or "",
-            "time": time_label,
-        },
-        room=str(booking_id),
     )
 
 
